@@ -9,6 +9,7 @@ const DAY_LABELS = [
 ];
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MS_PER_WEEK = 7 * MS_PER_DAY;
 
 const parseDateOnly = (value) => {
   if (value instanceof Date) {
@@ -42,6 +43,14 @@ const parseDateOnly = (value) => {
 
 const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
+const getMonday = (date) => {
+  const d = startOfDay(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+};
+
 const formatDateKey = (date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -61,16 +70,32 @@ const getIsoWeekNumber = (date) => {
   return Math.ceil((((utcDate - yearStart) / MS_PER_DAY) + 1) / 7);
 };
 
+const getRotationAnchorMonday = () => {
+  const configured = parseDateOnly(process.env.ROTATION_WEEK1_START || "2026-01-05");
+  // Fallback to first Monday of 2026 if env date is invalid.
+  const anchor = configured || new Date(2026, 0, 5);
+  return getMonday(anchor);
+};
+
+const getRotationWeekNumber = (date) => {
+  const anchorMonday = getRotationAnchorMonday();
+  const targetMonday = getMonday(date);
+  const diffDays = Math.round((targetMonday - anchorMonday) / MS_PER_DAY);
+  const weekIndex = Math.floor(diffDays / 7);
+  return weekIndex + 1;
+};
+
 const getActiveBatchForDate = (date) => {
   if (isWeekend(date)) {
     return null;
   }
 
-  const weekNumber = getIsoWeekNumber(date);
+  const weekNumber = getRotationWeekNumber(date);
   const day = date.getDay();
   const isMonToWed = day >= 1 && day <= 3;
+  const isOddWeek = Math.abs(weekNumber) % 2 === 1;
 
-  if (weekNumber % 2 === 1) {
+  if (isOddWeek) {
     return isMonToWed ? 1 : 2;
   }
 
@@ -95,10 +120,11 @@ const getDiffInDays = (targetDate, fromDate) => {
 };
 
 const getRotationForDate = (date) => {
-  const weekNumber = getIsoWeekNumber(date);
+  const weekNumber = getRotationWeekNumber(date);
   return {
     date: formatDateKey(date),
     weekNumber,
+    isoWeekNumber: getIsoWeekNumber(date),
     dayOfWeek: date.getDay(),
     dayLabel: DAY_LABELS[date.getDay()],
     activeBatch: getActiveBatchForDate(date),
@@ -212,6 +238,7 @@ module.exports = {
   formatDateKey,
   isWeekend,
   getIsoWeekNumber,
+  getRotationWeekNumber,
   getActiveBatchForDate,
   getNextWorkingDay,
   getRotationForDate,

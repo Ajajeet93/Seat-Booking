@@ -3,6 +3,13 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import { Armchair, CheckCircle2, Lock, Unlock, Wind, UserCheck } from 'lucide-react';
 
+const getLocalDateKey = (date = new Date()) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const SeatCard = ({ seat, onBook, onRelease }) => {
   let bgClass = 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200 hover:bg-emerald-500/20 hover:-translate-y-1 shadow-md shadow-emerald-500/20 ring-1 ring-emerald-500/30 backdrop-blur-md';
   let statusText = 'Available';
@@ -62,7 +69,7 @@ const SeatCard = ({ seat, onBook, onRelease }) => {
 };
 
 const Booking = () => {
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(getLocalDateKey());
   const [seats, setSeats] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('ALL');
@@ -141,8 +148,8 @@ const Booking = () => {
           <input
             type="date"
             value={date}
-            min={new Date().toISOString().split('T')[0]}
-            max={new Date(new Date().setDate(new Date().getDate() + 14)).toISOString().split('T')[0]}
+            min={getLocalDateKey()}
+            max={getLocalDateKey(new Date(new Date().setDate(new Date().getDate() + 14)))}
             onChange={(e) => setDate(e.target.value)}
             className="input-field max-w-xs border-none bg-transparent shadow-none"
           />

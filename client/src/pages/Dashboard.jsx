@@ -5,6 +5,13 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
+const getLocalDateKey = (date = new Date()) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const StatsCard = ({ title, value, icon: Icon, color }) => (
   <div className="card p-6 flex items-center shadow-lg hover:-translate-y-1 transition-transform duration-300">
     <div className={`p-4 rounded-xl ${color} bg-opacity-20 mr-5 ring-1 ring-inset ${color.replace('bg-', 'ring-')}/30`}>
@@ -35,7 +42,7 @@ const Dashboard = () => {
 
   const fetchOperationalMeta = async () => {
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getLocalDateKey();
       const [rotationRes, floatingRes] = await Promise.all([
         api.get(`/rotation?date=${todayStr}`),
         api.get(`/floating-stats?date=${todayStr}`),
@@ -50,7 +57,7 @@ const Dashboard = () => {
 
   const fetchTodayBooking = async () => {
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getLocalDateKey();
       const res = await api.get(`/my-bookings?date=${todayStr}`);
 
       if (res.data && res.data.length > 0) {
@@ -70,7 +77,7 @@ const Dashboard = () => {
     if (!todayBooking) return;
 
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getLocalDateKey();
       await api.post('/release-seat', { date: todayStr, seat_id: todayBooking.seat_id });
       toast.success('Seat released successfully for today!');
       setTodayBooking(null);
@@ -92,7 +99,14 @@ const Dashboard = () => {
       day: 'numeric',
     });
 
-  const activeBatchText = rotationInfo?.activeBatch ? `Batch ${rotationInfo.activeBatch}` : 'Weekend';
+  const isWeekendFromRotation = rotationInfo?.dayOfWeek === 0 || rotationInfo?.dayOfWeek === 6;
+  const activeBatchText = !rotationInfo
+    ? 'Loading'
+    : rotationInfo.activeBatch
+      ? `Batch ${rotationInfo.activeBatch}`
+      : isWeekendFromRotation
+        ? 'Weekend'
+        : 'Unavailable';
 
   return (
     <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
@@ -113,7 +127,13 @@ const Dashboard = () => {
             <div className="flex items-center">
               <Users className="w-4 h-4 mr-2 text-purple-400" />
               <span className="font-medium bg-white/10 px-2 py-0.5 rounded border border-white/20">
-                {activeBatchText === 'Weekend' ? 'Weekend (No Batches)' : `${activeBatchText} Active`}
+                {activeBatchText === 'Loading'
+                  ? 'Loading batch...'
+                  : activeBatchText === 'Weekend'
+                    ? 'Weekend (No Batches)'
+                    : activeBatchText === 'Unavailable'
+                      ? 'Batch Unavailable'
+                      : `${activeBatchText} Active`}
               </span>
             </div>
           </div>

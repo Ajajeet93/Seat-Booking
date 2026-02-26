@@ -125,9 +125,15 @@ router.get("/seats", authMiddleware, async (req, res) => {
 
     for (const seat of allSeats) {
       const isReleased = releasedSeatIds.has(seat.id);
-      const isVisible = windowResult.isBatchDay
-        ? seat.seat_type === "DESIGNATED" && !isReleased
-        : seat.seat_type === "FLOATING" || isReleased;
+
+      let isVisible = false;
+      if (windowResult.isBatchDay) {
+        // On batch day: Show all designated seats (released designated are floating)
+        isVisible = seat.seat_type === "DESIGNATED" && !isReleased;
+      } else {
+        // On non-batch day: Show floating seats + any released designated seats
+        isVisible = seat.seat_type === "FLOATING" || (seat.seat_type === "DESIGNATED" && isReleased);
+      }
 
       if (isVisible) {
         visibleSeatMap.set(seat.id, seat);
@@ -162,11 +168,10 @@ router.get("/seats", authMiddleware, async (req, res) => {
 
         if (!isBooked && !hasUserBooking && windowResult.ok) {
           if (windowResult.isBatchDay) {
-            isBookable =
-              seat.seat_type === "DESIGNATED" &&
-              !isReleased;
+            // On batch day: only designated seats are bookable
+            isBookable = seat.seat_type === "DESIGNATED" && !isReleased;
           } else {
-            isBookable = seat.seat_type === "FLOATING" || isReleased;
+            isBookable = seat.seat_type === "FLOATING" || (seat.seat_type === "DESIGNATED" && isReleased);
           }
         }
 
@@ -262,18 +267,16 @@ router.post("/book-seat", authMiddleware, async (req, res) => {
     const isReleasedSeat = releasedSeatResult.rows.length > 0;
 
     if (windowResult.isBatchDay) {
-      const isAllowedDesignatedSeat =
-        seat.seat_type === "DESIGNATED" &&
-        !isReleasedSeat;
+      const isAllowed = seat.seat_type === "DESIGNATED" && !isReleasedSeat;
 
-      if (!isAllowedDesignatedSeat) {
+      if (!isAllowed) {
         await client.query("ROLLBACK");
         return res.status(400).json({
           error: "On your batch day, only designated seats are allowed.",
         });
       }
     } else {
-      const isFloatingCandidate = seat.seat_type === "FLOATING" || isReleasedSeat;
+      const isFloatingCandidate = seat.seat_type === "FLOATING" || (seat.seat_type === "DESIGNATED" && isReleasedSeat);
       if (!isFloatingCandidate) {
         await client.query("ROLLBACK");
         return res.status(400).json({
