@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    /* Animated Gradient Background */
+    background: linear-gradient(-45deg, #1f2937, #374151, #4b5563, #1f2937);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+    min-height: 100vh;
+    @apply text-gray-100 antialiased font-sans flex flex-col transition-colors duration-300;
+  }
+}
+
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply relative overflow-hidden bg-white/20 backdrop-blur-md border border-white/30 text-white px-5 py-2.5 rounded-xl hover:bg-white/30 hover:border-white/40 hover:-translate-y-0.5 transition-all duration-300 font-semibold;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+  }
+
+  .input-field {
+    @apply w-full px-5 py-3 bg-white/10 backdrop-blur-xl border border-white/20 text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-300/50 focus:bg-white/20 transition-all placeholder-gray-300;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .card {
+    /* Pure Glassmorphism CSS */
+    @apply bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 overflow-hidden;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* Scrollbar styling for pure dark mode */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-white/20 rounded-full border border-white/10;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-white/30;
+}
