@@ -10,6 +10,23 @@ const {
 
 const router = express.Router();
 
+const toStartOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const getNextWorkingDays = (startDate, count) => {
+  const days = [];
+  const cursor = toStartOfDay(startDate);
+
+  while (days.length < count) {
+    const day = cursor.getDay();
+    if (day !== 0 && day !== 6) {
+      days.push(new Date(cursor));
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return days;
+};
+
 const getFloatingPoolStats = async (dbClient, dateKey) => {
   const [baseFloatingResult, releasedDesignatedResult] = await Promise.all([
     dbClient.query("SELECT COUNT(*)::int AS count FROM seats WHERE seat_type = 'FLOATING'"),
@@ -409,6 +426,74 @@ router.get("/my-bookings", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error fetching user bookings." });
+  }
+});
+
+// Get logged-in employee 2-week (10 working days) booking schedule
+router.get("/my-two-week-schedule", authMiddleware, async (req, res) => {
+  try {
+    const startDateInput = req.query.startDate || formatDateKey(new Date());
+    const startDate = parseDateOnly(startDateInput);
+
+    if (!startDate) {
+      return res.status(400).json({ error: "Invalid startDate format. Use YYYY-MM-DD." });
+    }
+
+    const userBatch = Number(req.user.batch);
+    const workingDays = getNextWorkingDays(startDate, 10);
+    const startKey = formatDateKey(workingDays[0]);
+    const endKey = formatDateKey(workingDays[workingDays.length - 1]);
+
+    const bookingsResult = await pool.query(
+      "SELECT b.booking_date, b.status, b.seat_id, s.seat_number " +
+        "FROM bookings b JOIN seats s ON s.id = b.seat_id " +
+        "WHERE b.employee_id = $1 AND b.booking_date >= $2 AND b.booking_date <= $3 " +
+        "ORDER BY b.booking_date ASC",
+      [req.user.id, startKey, endKey],
+    );
+
+    const bookingsByDate = new Map(
+      bookingsResult.rows.map((row) => [formatDateKey(new Date(row.booking_date)), row]),
+    );
+
+    const now = new Date();
+    const schedule = workingDays.map((date) => {
+      const dateKey = formatDateKey(date);
+      const booking = bookingsByDate.get(dateKey);
+      const rotation = getRotationForDate(date);
+      const windowResult = evaluateBookingWindow({
+        targetDate: date,
+        userBatch,
+        now,
+      });
+
+      return {
+        date: dateKey,
+        dayLabel: rotation.dayLabel,
+        activeBatch: rotation.activeBatch,
+        isBatchDay: rotation.activeBatch === userBatch,
+        booking: booking
+          ? {
+              seat_id: booking.seat_id,
+              seat_number: booking.seat_number,
+              status: booking.status,
+            }
+          : null,
+        canChooseSeat: !booking && windowResult.ok,
+        chooseReason: !booking && !windowResult.ok ? windowResult.message : null,
+        policyCode: windowResult.code,
+      };
+    });
+
+    return res.json({
+      startDate: startKey,
+      endDate: endKey,
+      totalWorkingDays: schedule.length,
+      schedule,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error fetching two-week schedule." });
   }
 });
 

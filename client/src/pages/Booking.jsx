@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { Armchair, CheckCircle2, Lock, Unlock, Wind, UserCheck } from 'lucide-react';
@@ -9,6 +10,8 @@ const getLocalDateKey = (date = new Date()) => {
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 };
+
+const isDateKey = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
 const SeatCard = ({ seat, onBook, onRelease }) => {
   let bgClass = 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200 hover:bg-emerald-500/20 hover:-translate-y-1 shadow-md shadow-emerald-500/20 ring-1 ring-emerald-500/30 backdrop-blur-md';
@@ -69,7 +72,9 @@ const SeatCard = ({ seat, onBook, onRelease }) => {
 };
 
 const Booking = () => {
-  const [date, setDate] = useState(getLocalDateKey());
+  const [searchParams] = useSearchParams();
+  const queryDate = searchParams.get('date');
+  const [date, setDate] = useState(isDateKey(queryDate || '') ? queryDate : getLocalDateKey());
   const [seats, setSeats] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('ALL');
@@ -82,6 +87,12 @@ const Booking = () => {
   useEffect(() => {
     fetchSeats();
   }, [date]);
+
+  useEffect(() => {
+    if (isDateKey(queryDate || '')) {
+      setDate(queryDate);
+    }
+  }, [queryDate]);
 
   const fetchSeats = async () => {
     setLoading(true);
